@@ -42,11 +42,11 @@ console.log(777);
         lat: String,
         lon: String,
         timestamp: Number,
-    });
+    }, { collection: 'geo'});
     mongoose.model('Hd8', Hd8Schema);
 
     // 使用フェーズ
-    mongoose.connect('mongodb://localhost/hd8');
+    mongoose.connect('mongodb://localhost/seasons');
 
     var Hd8 = mongoose.model('Hd8');
 
@@ -55,7 +55,6 @@ console.log(777);
 
     // 最終の位置情報と、それ以前の位置情報の差分取得
     Hd8.find({name: 'yukondou'}, [], {sort: {timestamp: -1}}, function(err, docs) {
-
         // 位置情報が2カ所以上あれば、ひとまず計算処理開始
         if (docs.length > 1) {
             base = docs[0];
@@ -64,7 +63,7 @@ console.log(777);
 
             for (var i = 1; i < docs.length; i++) {
                 // 時間差分（分）
-                var dt = Math.abs((docs[i].timestamp - base.timestamp) / 60000);
+                var dt = Math.abs((docs[i].timestamp - base.timestamp) / 60);
 
                 // 送信時間に1分以上の差があれば、移動情報を計算
                 if (dt >= 1) {

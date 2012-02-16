@@ -2,6 +2,7 @@ var _aryGeoDiff = [];
 var _aryFarStation = [];
 var _objLatestData = {};
 var _objWay = {};
+var _disExecCount = 0;
 
 // スタート
 getGeoDiff();
@@ -50,13 +51,14 @@ console.log(777);
 
     var Hd8 = mongoose.model('Hd8');
 
-    var aryGeoDiff = [];
     var base = {};
 
     // 最終の位置情報と、それ以前の位置情報の差分取得
     Hd8.find({name: 'yukondou'}, [], {sort: {timestamp: -1}}, function(err, docs) {
+
         // 位置情報が2カ所以上あれば、ひとまず計算処理開始
         if (docs.length > 1) {
+            var aryGeoDiff = [];
             base = docs[0];
             var base_lat = base.lat + 0;
             var base_lon = base.lon + 0;
@@ -70,73 +72,134 @@ console.log(777);
                     var lat = Number(docs[i].lat);
                     var lon = Number(docs[i].lon);
 
-                    var d = (distance(lat, lon, base_lat, base_lon) / 1000).toFixed(1);
-                    var t = dt / 60;
-                    var a = azimuth(lat, lon, base_lat, base_lon).toFixed(1);
+                    // 計算回数をチェック
+                    _disExecCount++;
+                    var disExecCount = 0;
 
-                    aryGeoDiff.push({
-                        d: d,
-                        t: t,
-                        t_min: dt,
-                        a: a,
-                    });
+                    lat1 = lat;
+                    lon1 = lon;
+                    lat2 = base_lat;
+                    lon2 = base_lon;
+
+                    var sAppid = 'cV8qsbmxg67L0Z7MV1B7vtwGTL5uf2wHPQhZPkam8Wfjp_.7SpgzAEn9cID00NXUcpqY';
+                    var sCoord = lon1 + ',' + lat1 + '%20' + lon2 + ',' + lat2;
+                    var sApiQuery = ''
+                        + '?appid='       + sAppid
+                        + '&coordinates=' + sCoord
+                        + '&output=json'
+                    ;
+
+                    var http = require('http');
+                    http.get(
+                        {
+                            host: 'distance.search.olp.yahooapis.jp',
+                            path: '/OpenLocalPlatform/V1/distance' + sApiQuery,
+                        },
+                        function(res) {
+                            var body = '';
+                            res.on('data', function(data) {
+                                body += data;
+                            });
+                            res.on('end', function() {
+                                var a = JSON.parse(body);
+                                disExecCount++;
+
+                                if (a.Feature !== undefined && a.Feature[0].Geometry !== undefined) {
+                                    var d = (a.Feature[0].Geometry.Distance - 0).toFixed(1);
+                                    var t = dt / 60;
+                                    var a = azimuth(lat, lon, base_lat, base_lon).toFixed(1);
+
+                                    aryGeoDiff.push({
+                                        d: d,
+                                        t: t,
+                                        t_min: dt,
+                                        a: a,
+                                    });
+                                }
+
+                                // 全部計算したら
+                                if (_disExecCount === disExecCount) {
+
+                                    // 移動手段
+                                    var objWay = {};
+                                    var iLen = aryGeoDiff.length;
+                                    if (iLen > 0) {
+                                        var s = aryGeoDiff[iLen - 1].d / aryGeoDiff[iLen - 1].t;
+
+                                        if (s < 1) {
+                                            objWay = {
+                                                id: 0,
+                                                text: '移動してないんじゃない？',
+                                            };
+                                        } else if (1 <= s && s < 10) {
+                                            objWay = {
+                                                id: 1,
+                                                text: '徒歩とか？',
+                                            };
+                                        } else if (10 <= s && s < 25) {
+                                            objWay = {
+                                                id: 2,
+                                                text: '自転車とか？',
+                                            };
+                                        } else if (25 <= s && s < 35) {
+                                            objWay = {
+                                                id: 3,
+                                                text: '地下鉄とか？',
+                                            };
+                                        } else if (35 <= s && s < 55) {
+                                            objWay = {
+                                                id: 4,
+                                                text: '車とか？',
+                                            };
+                                        } else if (55 <= s && s < 70) {
+                                            objWay = {
+                                                id: 5,
+                                                text: '電車とか？',
+                                            };
+                                        } else if (70 <= s && s < 100) {
+                                            objWay = {
+                                            id: 6,
+                                                text: '高速道路とか？',
+                                            };
+                                        } else if (100 <= s) {
+                                            objWay = {
+                                                id: 7,
+                                                text: 'ぶっとんでるね！',
+                                            };
+                                        }
+                                    }
+
+                                    // グローバル変数に入れて
+                                    _objLatestData = base;
+                                    _objWay = objWay;
+                                    _aryGeoDiff = aryGeoDiff;
+
+                                    // 検索へ
+                                    getNearlyStation();
+
+                                    // 初期化
+                                    _disExecCount = 0;
+
+                                }
+                            });
+                        }
+                    );
                 }
 
                 // 1時間以上の差があれば、終了
                 if (dt > 60) {
                     break;
                 }
+
             }
         }
+    });
+return 1;
+/*
 
         // 移動手段
         var objWay = {};
         var iLen = aryGeoDiff.length;
-        if (iLen > 0) {
-            var s = aryGeoDiff[iLen - 1].d / aryGeoDiff[iLen - 1].t;
-
-            if (s < 1) {
-                objWay = {
-                    id: 0,
-                    text: '移動してないんじゃない？',
-                };
-            } else if (1 <= s && s < 10) {
-                objWay = {
-                    id: 1,
-                    text: '徒歩とか？',
-                };
-            } else if (10 <= s && s < 25) {
-                objWay = {
-                    id: 2,
-                    text: '自転車とか？',
-                };
-            } else if (25 <= s && s < 35) {
-                objWay = {
-                    id: 3,
-                    text: '地下鉄とか？',
-                };
-            } else if (35 <= s && s < 55) {
-                objWay = {
-                    id: 4,
-                    text: '車とか？',
-                };
-            } else if (55 <= s && s < 70) {
-                objWay = {
-                    id: 5,
-                    text: '電車とか？',
-                };
-            } else if (70 <= s && s < 100) {
-                objWay = {
-                    id: 6,
-                    text: '高速道路とか？',
-                };
-            } else if (100 <= s) {
-                objWay = {
-                    id: 7,
-                    text: 'ぶっとんでるね！',
-                };
-            }
-        }
 
         // グローバル変数に入れて
         _objLatestData = base;
@@ -146,6 +209,8 @@ console.log(777);
         // 検索へ
         getNearlyStation();
     });
+*/
+
 }
 
 /**
@@ -310,22 +375,6 @@ function getFarStation(aryNearlyLine) {
 
 var A = 6378137;            // 地球の赤道半径
 var RAD = Math.PI / 180;    // 1°あたりのラジアン
-
-/**
- * 2点間の距離を求める関数
- */
-function distance(lat1, lon1, lat2, lon2) {
-    // 度をラジアンに変換
-    lat1 *= RAD;
-    lon1 *= RAD;
-    lat2 *= RAD;
-    lon2 *= RAD;
-    var lat_c = (lat1 + lat2) / 2;                  // 緯度の中心値
-    var dx = A * (lon2 - lon1) * Math.cos(lat_c);
-    var dy = A * (lat2 - lat1);
-
-    return Math.sqrt(dx * dx + dy * dy);
-}
 
 /**
  * 2点間の方位角を求める関数

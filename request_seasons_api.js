@@ -1,4 +1,5 @@
 var _aryGeoDiff = [];
+var _aryFarStation = [];
 var _objLatestData = {};
 var _objWay = {};
 
@@ -6,9 +7,32 @@ var _objWay = {};
 getGeoDiff();
 
 /**
+ * 検索位置を返すHTTP API
+ */
+var http = require('http');
+var server = http.createServer(
+    function (request, response) {
+        getGeoDiff();
+
+        response.writeHead(200, {'Content-Type': 'text/javascript; charset=UTF-8'});
+        response.write(JSON.stringify({
+            current: _objLatestData,
+            way: _objWay,
+            diff: _aryGeoDiff,
+            station: _aryFarStation,
+        }));
+        response.end();
+    }
+).listen(8124);
+console.log('Server running at http://127.0.0.1:8124/');
+
+
+/**
  * 移動情報を取る
  */
 function getGeoDiff() {
+console.log(777);
+
     var mongoose = require('mongoose');
 
     // 定義フェーズ
@@ -276,32 +300,11 @@ function getFarStation(aryNearlyLine) {
 
 //                console.log(aryFarStation);
 
-                response(aryFarStation);
+                _aryFarStation = aryFarStation;
             });
         }
     );
 }
-
-/**
- * 検索位置を返すHTTP API
- */
-function response(aryFarStation) {
-    var http = require('http');
-    var server = http.createServer(
-        function (request, response) {
-            response.writeHead(200, {'Content-Type': 'text/javascript; charset=UTF-8'});
-            response.write(JSON.stringify({
-                current: _objLatestData,
-                way: _objWay,
-                diff: _aryGeoDiff,
-                station: aryFarStation,
-            }));
-            response.end();
-        }
-    ).listen(8124);
-    console.log('Server running at http://127.0.0.1:8124/');
-}
-
 
 
 

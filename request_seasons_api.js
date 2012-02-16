@@ -232,7 +232,7 @@ function getNearlyStation() {
         + '&lon='      + fLon
         + '&query='    + sQuery
         + '&gc='       + sGc
-        + '&distance=' + iDistance
+        + '&dist=' + iDistance
         + '&output=json'
         + '&sort=dist'
     ;
@@ -305,9 +305,9 @@ function getFarStation(aryNearlyLine) {
         + '&lon='      + fLon
         + '&query='    + sQuery
         + '&gc='       + sGc
-        + '&distance=' + iDistance
+        + '&dist=' + iDistance
         + '&output=json'
-        + '&sort=dist'
+        + '&sort=dist&results=100'
     ;
 
     var http = require('http');
@@ -351,7 +351,7 @@ function getFarStation(aryNearlyLine) {
                         if (bOnLine) {
                             var aryCoord = a.Feature[i].Geometry.Coordinates.split(',');
 
-                            var fAngle = azimuth(aryCoord[1], aryCoord[0], fLat, fLon);
+                            var fAngle = azimuth(fLat, fLon, aryCoord[1], aryCoord[0]);
                             var fDiffAngle = Math.abs(fAngle - iAvgAngle);
 
                             if (fDiffAngle <= 90) {
